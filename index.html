@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Günlük</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: #0a0a0a; }
+.app { height: 100vh; position: relative; }
+canvas { display: block; width: 100%; height: 100%; }
+.overlay { position: absolute; top: 16px; right: 16px; display: flex; gap: 12px; z-index: 10; }
+.date { font-family: 'Caveat', cursive; font-size: 32px; font-weight: 700; color: rgba(0,0,0,0.15); }
+.controls { position: absolute; bottom: 16px; left: 16px; display: flex; gap: 8px; z-index: 10; }
+.btn { padding: 11px 18px; border: none; border-radius: 10px; background: rgba(255,255,255,0.08); color: #f0f0f0; font-size: 13px; cursor: pointer; }
+.btn.danger { background: rgba(255,80,80,0.12); color: #ff9090; }
+</style>
+</head>
+<body>
+<div class="app">
+  <canvas id="canvas"></canvas>
+  <div class="overlay">
+    <div class="date" id="date">26.05.26</div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="undo" onclick="undoClick()">Geri</button>
+    <button class="btn danger" onclick="alert('TEST'); clearClick();">Temizle</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let isDrawing = false, lastX = 0, lastY = 0, history = [], midX = 0;
+
+const CHILD_BG = '#f5ede1';
+const CHILD_PEN = '#e8a87c';
+const ADULT_BG = '#2a3a4a';
+const ADULT_PEN = '#5ba3d0';
+const DIVIDER = '#d4a574';
+
+function drawBg() {
+  ctx.fillStyle = CHILD_BG;
+  ctx.fillRect(0, 0, midX, canvas.height);
+  ctx.fillStyle = ADULT_BG;
+  ctx.fillRect(midX, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = DIVIDER;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, 0);
+  ctx.lineTo(midX, canvas.height);
+  ctx.stroke();
+}
+
+function resize() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  midX = canvas.width / 2;
+  drawBg();
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+}
+
+function draw(e) {
+  if (!isDrawing) return;
+  const p = getPos(e);
+  const lastSide = lastX < midX ? 'L' : 'R';
+  const newSide = p.x < midX ? 'L' : 'R';
+  
+  ctx.lineCap = ctx.lineJoin = 'round';
+  
+  if (lastSide === newSide) {
+    ctx.strokeStyle = lastSide === 'L' ? CHILD_PEN : ADULT_PEN;
+    ctx.lineWidth = lastSide === 'L' ? 4 : 2.5;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  } else {
+    const t = (midX - lastX) / (p.x - lastX);
+    const cy = lastY + t * (p.y - lastY);
+    
+    ctx.strokeStyle = CHILD_PEN;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(midX, cy);
+    ctx.stroke();
+    
+    ctx.strokeStyle = ADULT_PEN;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(midX, cy);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  
+  lastX = p.x;
+  lastY = p.y;
+}
+
+function clearClick() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = CHILD_BG;
+  ctx.fillRect(0, 0, midX, canvas.height);
+  ctx.fillStyle = ADULT_BG;
+  ctx.fillRect(midX, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = DIVIDER;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(midX, 0);
+  ctx.lineTo(midX, canvas.height);
+  ctx.stroke();
+  history = [];
+}
+
+function undoClick() {
+  if (history.length > 0) {
+    const img = new Image();
+    img.onload = () => ctx.drawImage(img, 0, 0);
+    img.src = history.pop();
+  }
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  isDrawing = true;
+  const p = getPos(e);
+  lastX = p.x;
+  lastY = p.y;
+  history.push(canvas.toDataURL());
+});
+
+canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('mouseup', () => isDrawing = false);
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  isDrawing = true;
+  const p = getPos(e);
+  lastX = p.x;
+  lastY = p.y;
+  history.push(canvas.toDataURL());
+}, false);
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  draw(e);
+}, false);
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  isDrawing = false;
+}, false);
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
